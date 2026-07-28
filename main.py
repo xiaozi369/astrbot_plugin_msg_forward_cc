@@ -12,7 +12,7 @@ from astrbot.api import AstrBotConfig
 
 import string
 
-from astrbot.core.message.components import Plain, Image, Record, Video, File
+from astrbot.core.message.components import Plain, Image, Record, Video, File, Reply, At
 
 
 # ------------------------
@@ -594,6 +594,26 @@ class MsgForward(star.Star):
                 return
 
             raw_chain = event.get_messages()
+            new_chain = []
+            for comp in raw_chain:
+                if isinstance(comp, Reply):
+                    # 清理 message_str 中的 QQ 号（@xxx(QQ号) -> @xxx）
+                    import re
+                    clean_msg = re.sub(r"\([0-9]+\)", "", comp.message_str)
+                    new_chain.append(Plain(text="[发送者] " + comp.sender_nickname + "\n"))
+                    new_chain.append(Plain(text="[消息内容] " + clean_msg + "\n"))
+                    if comp.chain:
+                        for media in comp.chain:
+                            if isinstance(media, (Image, Record, Video, File)):
+                                new_chain.append(media)
+                    new_chain.append(Plain(text="\n\n"))
+                else:
+                    if isinstance(comp, At):
+                        name = comp.name if comp.name else str(comp.qq)
+                        new_chain.append(Plain(text="@" + name + " "))
+                    else:
+                        new_chain.append(comp)
+            raw_chain = new_chain
             # 跨设备转发时媒体组件的 file 路径常不可达，启用此选项会先下载到本机再转发。
             if self.config.get("download_media_before_send", False):
                 message_chain = await _prepare_chain_for_forward(raw_chain)
