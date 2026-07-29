@@ -600,7 +600,7 @@ class MsgForward(star.Star):
                     # 清理 message_str 中的 QQ 号（@xxx(QQ号) -> @xxx）
                     import re
                     clean_msg = re.sub(r"\([0-9]+\)", "", comp.message_str)
-                    new_chain.append(Plain(text="[发送者] " + comp.sender_nickname + "\n"))
+                    new_chain.append(Plain(text="[引用] " + comp.sender_nickname + "\n"))
                     new_chain.append(Plain(text="[消息内容] " + clean_msg + "\n"))
                     if comp.chain:
                         for media in comp.chain:
