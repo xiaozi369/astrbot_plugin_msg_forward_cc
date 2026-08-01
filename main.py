@@ -12,7 +12,7 @@ from astrbot.api import AstrBotConfig
 
 import string
 
-from astrbot.core.message.components import Plain, Image, Record, Video, File, Reply, At
+from astrbot.core.message.components import Plain, Image, Record, Video, File, Reply, At, Poke, Shake, RPS, Dice, Face
 
 
 # ------------------------
@@ -588,12 +588,21 @@ class MsgForward(star.Star):
     async def forward_message(self, event: AstrMessageEvent):
         """主转发逻辑"""
         try:
-            source_umo = str(event.unified_msg_origin)
+            # 使用原始群号构造纯群 UMO，避免会话隔离(unique_session)导致规则匹配失败
+            group_id = event.get_group_id()
+            if not group_id:
+                return
+            source_umo = f"default:GroupMessage:{group_id}"
             rules = [r for r in self.config.get("rules", []) if r.get("source_umo") == source_umo]
             if not rules:
                 return
 
             raw_chain = event.get_messages()
+            if not raw_chain:
+                return
+            # 跳过仅含互动/通知组件（戳一戳、窗口抖动、猜拳、掷骰子等）的消息
+            if all(isinstance(c, (Poke, Shake, RPS, Dice, At)) for c in raw_chain):
+                return
             new_chain = []
             for comp in raw_chain:
                 if isinstance(comp, Reply):
@@ -646,7 +655,7 @@ class MsgForward(star.Star):
                         new_chain = message_chain
                     else:
                         header = self._format_origin_header(event, source_umo)
-                        header += "\n\n\u200b"
+                        header += "\n\n"
                         new_chain = [Plain(text=header)] + message_chain
                     await self.context.send_message(target, event.chain_result(new_chain))
                     # 转发成功后设置冷却
